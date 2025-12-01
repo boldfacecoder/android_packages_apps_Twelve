@@ -5,6 +5,9 @@
 
 package org.lineageos.twelve.models
 
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
 /**
  * Rules for sorting data.
  * Data providers must do a best effort attempt to respect the rules.
@@ -12,7 +15,8 @@ package org.lineageos.twelve.models
  * @param strategy The strategy to use for sorting
  * @param reverse If the data should be sorted in descending order
  */
+@Parcelize
 data class SortingRule(
     val strategy: SortingStrategy,
     val reverse: Boolean = false,
-)
+) : Parcelable

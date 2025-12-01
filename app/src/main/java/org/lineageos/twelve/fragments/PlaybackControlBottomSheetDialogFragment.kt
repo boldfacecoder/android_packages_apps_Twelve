@@ -14,6 +14,8 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.mediarouter.app.MediaRouteButton
+import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -32,6 +34,7 @@ class PlaybackControlBottomSheetDialogFragment : BottomSheetDialogFragment(
     private val viewModel by viewModels<PlaybackControlViewModel>()
 
     // Views
+    private val castMediaRouteButton by getViewProperty<MediaRouteButton>(R.id.castMediaRouteButton)
     private val playbackSpeedMaterialButton by getViewProperty<MaterialButton>(R.id.playbackSpeedMaterialButton)
     private val playbackSpeedMinusMaterialButton by getViewProperty<MaterialButton>(R.id.playbackSpeedMinusMaterialButton)
     private val playbackSpeedPlusMaterialButton by getViewProperty<MaterialButton>(R.id.playbackSpeedPlusMaterialButton)
@@ -40,6 +43,8 @@ class PlaybackControlBottomSheetDialogFragment : BottomSheetDialogFragment(
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        CastButtonFactory.setUpMediaRouteButton(requireContext(), castMediaRouteButton)
 
         playbackSpeedMinusMaterialButton.setOnClickListener {
             viewModel.decreasePlaybackSpeed()

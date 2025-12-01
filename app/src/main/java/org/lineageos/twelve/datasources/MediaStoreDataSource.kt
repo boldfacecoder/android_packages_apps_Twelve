@@ -291,6 +291,10 @@ class MediaStoreDataSource(
                         SortingStrategy.ARTIST_NAME -> MediaStore.Audio.AudioColumns.ARTIST
                         SortingStrategy.CREATION_DATE -> MediaStore.Audio.AudioColumns.YEAR
                         SortingStrategy.NAME -> MediaStore.Audio.AudioColumns.TITLE
+                        SortingStrategy.MODIFICATION_DATE -> MediaStore.Audio.AudioColumns.DATE_MODIFIED
+                        SortingStrategy.DATE_ADDED -> MediaStore.Audio.AudioColumns.DATE_ADDED
+                        SortingStrategy.DURATION -> MediaStore.Audio.AudioColumns.DURATION
+                        SortingStrategy.ALBUM_NAME -> MediaStore.Audio.AudioColumns.ALBUM
                         else -> null
                     }?.let { column ->
                         when (sortingRule.reverse) {

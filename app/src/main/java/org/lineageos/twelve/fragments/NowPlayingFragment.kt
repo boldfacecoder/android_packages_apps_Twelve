@@ -32,6 +32,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.Player
 import androidx.navigation.fragment.findNavController
+import com.google.android.gms.cast.framework.CastButtonFactory
+import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
@@ -85,6 +87,7 @@ class NowPlayingFragment : Fragment(R.layout.fragment_now_playing) {
     private val linearProgressIndicator by getViewProperty<LinearProgressIndicator>(R.id.linearProgressIndicator)
     private val lyricsMaterialCardView by getViewProperty<MaterialCardView>(R.id.lyricsMaterialCardView)
     private val nestedScrollView by getViewProperty<NestedScrollView>(R.id.nestedScrollView)
+    private val castMediaRouteButton by getViewProperty<MediaRouteButton>(R.id.castMediaRouteButton)
     private val nextLyricsTextView by getViewProperty<TextView>(R.id.nextLyricsTextView)
     private val nextTrackMaterialButton by getViewProperty<MaterialButton>(R.id.nextTrackMaterialButton)
     private val outputDeviceImageView by getViewProperty<ImageView>(R.id.outputDeviceImageView)
@@ -136,6 +139,13 @@ class NowPlayingFragment : Fragment(R.layout.fragment_now_playing) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Handle arguments
+        arguments?.getParcelable<android.net.Uri>(ARG_AUDIO_URI)?.let {
+            viewModel.playMedia(it)
+            // Clear arguments to prevent re-playing on configuration change
+            arguments?.remove(ARG_AUDIO_URI)
+        }
 
         // Insets
         ViewCompat.setOnApplyWindowInsetsListener(toolbar) { v, windowInsets ->
@@ -193,6 +203,9 @@ class NowPlayingFragment : Fragment(R.layout.fragment_now_playing) {
         audioTitleTextView.isSelected = true
         artistNameTextView.isSelected = true
         albumTitleTextView.isSelected = true
+
+        // Cast
+        CastButtonFactory.setUpMediaRouteButton(requireContext(), castMediaRouteButton)
 
         // Media controls
         progressSlider.setLabelFormatter {
@@ -661,5 +674,13 @@ class NowPlayingFragment : Fragment(R.layout.fragment_now_playing) {
         private val decimalFormatSymbols = DecimalFormatSymbols(Locale.ROOT)
 
         private val playbackSpeedFormatter = DecimalFormat("0.#", decimalFormatSymbols)
+
+        private const val ARG_AUDIO_URI = "audio_uri"
+
+        fun createBundle(
+            audioUri: android.net.Uri,
+        ) = androidx.core.os.bundleOf(
+            ARG_AUDIO_URI to audioUri,
+        )
     }
 }
