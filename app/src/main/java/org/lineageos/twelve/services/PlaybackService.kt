@@ -417,16 +417,19 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
 
                 CustomCommand.TOGGLE_SKIP_SILENCE -> {
                     args.getBoolean(CustomCommand.ARG_VALUE).let {
-                        player.skipSilenceEnabled = it
+                        exoPlayer.skipSilenceEnabled = it
                     }
 
                     SessionResult(SessionResult.RESULT_SUCCESS)
                 }
 
                 CustomCommand.GET_AUDIO_SESSION_ID -> {
+                    val audioSessionId = (player as? ExoPlayer)?.audioSessionId
+                        ?: return@future SessionResult(SessionError.ERROR_NOT_SUPPORTED)
+
                     SessionResult(
                         SessionResult.RESULT_SUCCESS,
-                        bundleOf(CustomCommand.RSP_VALUE to player.audioSessionId),
+                        bundleOf(CustomCommand.RSP_VALUE to audioSessionId),
                     )
                 }
 
@@ -695,7 +698,12 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
     )
 
     private fun getCustomLayout() = CustomCommand.entries.mapNotNull {
-        it.buildCommandButton(player, resources)
+        val p = player
+        when (p) {
+            is ExoPlayer -> it.buildCommandButton(p, resources)
+            is CastPlayer -> it.buildCommandButton(p, resources)
+            else -> null
+        }
     }
 
     /**

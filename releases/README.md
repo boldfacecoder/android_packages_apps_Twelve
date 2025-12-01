@@ -1,1 +1,1 @@
-The APK build environment is unstable. Please build the APK from source using './gradlew assembleDebug'.
+To reconstruct the APK, run: cat releases/app-debug.apk.part* > app-debug.apk
