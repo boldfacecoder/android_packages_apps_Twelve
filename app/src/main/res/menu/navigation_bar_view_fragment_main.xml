@@ -13,6 +13,12 @@
         app:tint="?attr/colorOnSurface" />
 
     <item
+        android:id="@+id/songsFragment"
+        android:icon="@drawable/ic_music_note"
+        android:title="@string/main_fragment_section_songs"
+        app:tint="?attr/colorOnSurface" />
+
+    <item
         android:id="@+id/searchFragment"
         android:icon="@drawable/ic_search"
         android:title="@string/main_fragment_section_search"

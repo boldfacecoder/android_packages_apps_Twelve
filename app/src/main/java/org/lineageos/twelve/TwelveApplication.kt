@@ -10,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import com.google.android.gms.cast.framework.CastContext
 import com.google.android.material.color.DynamicColors
 import kotlinx.coroutines.MainScope
 import org.lineageos.twelve.database.TwelveDatabase
@@ -37,6 +38,12 @@ class TwelveApplication : Application(), SingletonImageLoader.Factory {
 
         // Observe dynamic colors changes
         DynamicColors.applyToActivitiesIfAvailable(this)
+
+        try {
+            CastContext.getSharedInstance(this)
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(this)

@@ -70,6 +70,11 @@ private const val SKIP_SILENCE_DEFAULT = false
 val SharedPreferences.skipSilence: Boolean
     get() = getBoolean(SKIP_SILENCE_KEY, SKIP_SILENCE_DEFAULT)
 
+const val EXCLUSIVE_USB_ACCESS_KEY = "exclusive_usb_access"
+private const val EXCLUSIVE_USB_ACCESS_DEFAULT = false
+val SharedPreferences.exclusiveUsbAccess: Boolean
+    get() = getBoolean(EXCLUSIVE_USB_ACCESS_KEY, EXCLUSIVE_USB_ACCESS_DEFAULT)
+
 const val DEFAULT_PROVIDER_KEY = "default_provider"
 var SharedPreferences.defaultProvider: ProviderIdentifier?
     get() = getString(DEFAULT_PROVIDER_KEY, null)?.let {

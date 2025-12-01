@@ -40,6 +40,14 @@
             android:tooltipText="@string/visualizer"
             app:icon="@drawable/ic_graphic_eq" />
 
+        <androidx.mediarouter.app.MediaRouteButton
+            android:id="@+id/castMediaRouteButton"
+            style="@style/Theme.Twelve.NowPlayingFragment.BottomBarButton"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            app:mediaRouteButtonTint="?attr/colorOnSecondaryContainer" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/queueMaterialButton"
             style="@style/Theme.Twelve.NowPlayingFragment.BottomBarButton"
