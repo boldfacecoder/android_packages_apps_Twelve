@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.bogerchan.niervisualizer.renderer.IRenderer
 import me.bogerchan.niervisualizer.renderer.circle.CircleBarRenderer
@@ -443,6 +444,20 @@ open class NowPlayingViewModel(application: Application) : TwelveViewModel(appli
             started = SharingStarted.WhileSubscribed(),
             initialValue = null
         )
+
+    fun playMedia(uri: android.net.Uri) {
+        viewModelScope.launch {
+            mediaController.value?.let {
+                // Here we would ideally set the playlist context if available.
+                // For now we just play the single item.
+                val mediaItem = org.lineageos.twelve.models.Audio.Builder(uri).build()
+                    .toMedia3MediaItem(getApplication<Application>().resources)
+                it.setMediaItem(mediaItem)
+                it.prepare()
+                it.play()
+            }
+        }
+    }
 
     fun togglePlayPause() {
         mediaController.value?.let {
