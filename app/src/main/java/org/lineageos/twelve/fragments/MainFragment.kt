@@ -97,7 +97,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
                 var offset = 0
 
                 // Search button
-                if (position >= 1) {
+                if (position >= 2) {
                     offset += 1
                 }
 
@@ -349,13 +349,18 @@ class MainFragment : Fragment(R.layout.fragment_main) {
                     true
                 }
 
+                R.id.songsFragment -> {
+                    viewPager2.currentItem = 1
+                    true
+                }
+
                 R.id.searchFragment -> {
                     searchView.show()
                     false
                 }
 
                 R.id.libraryFragment -> {
-                    viewPager2.currentItem = 1
+                    viewPager2.currentItem = 2
                     true
                 }
 
@@ -498,6 +503,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         // Keep in sync with the BottomNavigationView menu
         private val fragments = arrayOf(
             { ActivityFragment() },
+            { SongsFragment() },
             { LibraryFragment() },
         )
 

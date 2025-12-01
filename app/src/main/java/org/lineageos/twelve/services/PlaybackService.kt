@@ -19,6 +19,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ServiceLifecycleDispatcher
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.cast.CastPlayer
+import androidx.media3.cast.DefaultMediaItemConverter
+import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.HeartRating
@@ -30,6 +33,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
+import com.google.android.gms.cast.framework.CastContext
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
@@ -157,6 +161,8 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
 
         open fun buildCommandButton(player: ExoPlayer, resources: Resources): CommandButton? = null
 
+        open fun buildCommandButton(player: CastPlayer, resources: Resources): CommandButton? = null
+
         companion object {
             const val ARG_VALUE = "value"
             const val RSP_VALUE = "value"
@@ -176,7 +182,9 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
     override val lifecycle: Lifecycle
         get() = dispatcher.lifecycle
 
-    private lateinit var player: ExoPlayer
+    private lateinit var exoPlayer: ExoPlayer
+    private var castPlayer: CastPlayer? = null
+    private lateinit var player: Player
     private lateinit var mediaLibrarySession: MediaLibrarySession
 
     private val audioTrackFlow = MutableStateFlow<AudioTrack?>(null)
@@ -229,6 +237,10 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
 
     private val outputConfigurationRepository by lazy {
         (application as TwelveApplication).outputConfigurationRepository
+    }
+
+    private val usbConnectionHandler by lazy {
+        UsbConnectionHandler(this, sharedPreferences)
     }
 
     private val mediaLibrarySessionCallback = object : MediaLibrarySession.Callback {
@@ -405,16 +417,19 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
 
                 CustomCommand.TOGGLE_SKIP_SILENCE -> {
                     args.getBoolean(CustomCommand.ARG_VALUE).let {
-                        player.skipSilenceEnabled = it
+                        exoPlayer.skipSilenceEnabled = it
                     }
 
                     SessionResult(SessionResult.RESULT_SUCCESS)
                 }
 
                 CustomCommand.GET_AUDIO_SESSION_ID -> {
+                    val audioSessionId = (player as? ExoPlayer)?.audioSessionId
+                        ?: return@future SessionResult(SessionError.ERROR_NOT_SUPPORTED)
+
                     SessionResult(
                         SessionResult.RESULT_SUCCESS,
-                        bundleOf(CustomCommand.RSP_VALUE to player.audioSessionId),
+                        bundleOf(CustomCommand.RSP_VALUE to audioSessionId),
                     )
                 }
 
@@ -448,7 +463,7 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
             .setUsage(C.USAGE_MEDIA)
             .build()
 
-        player = ExoPlayer.Builder(this)
+        exoPlayer = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .setRenderersFactory(
@@ -464,6 +479,29 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
             .apply {
                 setOffloadEnabled(sharedPreferences.enableOffload)
             }
+
+        try {
+            castPlayer = CastPlayer(
+                CastContext.getSharedInstance(this),
+                DefaultMediaItemConverter(),
+            )
+        } catch (e: Exception) {
+            Log.e(LOG_TAG, "Cast not available", e)
+        }
+
+        player = if (castPlayer?.isCastSessionAvailable == true) castPlayer!! else exoPlayer
+
+        castPlayer?.setSessionAvailabilityListener(
+            object : SessionAvailabilityListener {
+                override fun onCastSessionAvailable() {
+                    castPlayer?.let { switchToPlayer(it, exoPlayer) }
+                }
+
+                override fun onCastSessionUnavailable() {
+                    castPlayer?.let { switchToPlayer(exoPlayer, it) }
+                }
+            }
+        )
 
         mediaLibrarySession = MediaLibrarySession.Builder(
             this, player, mediaLibrarySessionCallback
@@ -481,50 +519,7 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
                 }
         )
 
-        lifecycleScope.launch {
-            player.listen { events ->
-                // Update startIndex and startPositionMs in resumption playlist.
-                if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                    lifecycleScope.launch {
-                        resumptionPlaylistRepository.onPlaybackPositionChanged(
-                            player.currentMediaItemIndex,
-                            player.currentPosition
-                        )
-                    }
-
-                    lifecycleScope.launch {
-                        player.currentMediaItem?.localConfiguration?.uri?.let {
-                            mediaRepository.onAudioPlayed(it)
-                        }
-                    }
-                }
-
-                // Update the now playing widget
-                if (events.containsAny(
-                        Player.EVENT_MEDIA_METADATA_CHANGED,
-                        Player.EVENT_PLAYBACK_STATE_CHANGED,
-                        Player.EVENT_PLAY_WHEN_READY_CHANGED,
-                    )
-                ) {
-                    lifecycleScope.launch {
-                        NowPlayingAppWidgetProvider.update(this@PlaybackService)
-                    }
-                }
-
-                // Update the shuffle and repeat buttons
-                if (events.containsAny(
-                        Player.EVENT_REPEAT_MODE_CHANGED,
-                        Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED
-                    )
-                ) {
-                    mediaLibrarySession.setCustomLayout(getCustomLayout())
-                }
-
-                if (events.contains(Player.EVENT_AUDIO_SESSION_ID)) {
-                    openAudioEffectSession()
-                }
-            }
-        }
+        setPlayerListeners(player)
 
         lifecycleScope.launch {
             audioFormat.collectLatest {
@@ -537,6 +532,8 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
                 outputConfigurationRepository.updateAudioDeviceInfo(audioDeviceInfo)
             }
         }
+
+        usbConnectionHandler.start()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -583,9 +580,12 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
     override fun onDestroy() {
         dispatcher.onServicePreSuperOnDestroy()
 
+        usbConnectionHandler.stop()
+
         closeAudioEffectSession()
 
-        player.release()
+        castPlayer?.release()
+        exoPlayer.release()
         mediaLibrarySession.release()
 
         super.onDestroy()
@@ -593,21 +593,98 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaLibrarySession
 
+    private fun setPlayerListeners(player: Player) {
+        lifecycleScope.launch {
+            player.listen { events ->
+                // Update startIndex and startPositionMs in resumption playlist.
+                if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                    lifecycleScope.launch {
+                        resumptionPlaylistRepository.onPlaybackPositionChanged(
+                            player.currentMediaItemIndex,
+                            player.currentPosition
+                        )
+                    }
+
+                    lifecycleScope.launch {
+                        player.currentMediaItem?.localConfiguration?.uri?.let {
+                            mediaRepository.onAudioPlayed(it)
+                        }
+                    }
+                }
+
+                // Update the now playing widget
+                if (events.containsAny(
+                        Player.EVENT_MEDIA_METADATA_CHANGED,
+                        Player.EVENT_PLAYBACK_STATE_CHANGED,
+                        Player.EVENT_PLAY_WHEN_READY_CHANGED,
+                    )
+                ) {
+                    lifecycleScope.launch {
+                        NowPlayingAppWidgetProvider.update(this@PlaybackService)
+                    }
+                }
+
+                // Update the shuffle and repeat buttons
+                if (events.containsAny(
+                        Player.EVENT_REPEAT_MODE_CHANGED,
+                        Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED
+                    )
+                ) {
+                    mediaLibrarySession.setCustomLayout(getCustomLayout())
+                }
+
+                if (events.contains(Player.EVENT_AUDIO_SESSION_ID)) {
+                    openAudioEffectSession()
+                }
+            }
+        }
+    }
+
+    private fun switchToPlayer(newPlayer: Player, oldPlayer: Player) {
+        if (newPlayer == oldPlayer) {
+            return
+        }
+
+        // We need to stop the old player and prepare the new one
+        val currentMediaItems = oldPlayer.mediaItems
+        val currentMediaItemIndex = oldPlayer.currentMediaItemIndex
+        val currentPosition = oldPlayer.currentPosition
+        val playWhenReady = oldPlayer.playWhenReady
+
+        oldPlayer.stop()
+        oldPlayer.clearMediaItems()
+
+        newPlayer.setMediaItems(currentMediaItems, currentMediaItemIndex, currentPosition)
+        newPlayer.playWhenReady = playWhenReady
+        newPlayer.prepare()
+
+        player = newPlayer
+        mediaLibrarySession.player = newPlayer
+
+        setPlayerListeners(newPlayer)
+    }
+
     private fun openAudioEffectSession() {
-        Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
-            putExtra(AudioEffect.EXTRA_PACKAGE_NAME, application.packageName)
-            putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
-            putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            sendBroadcast(this)
+        // Only open audio effect session if the player is ExoPlayer
+        if (player is ExoPlayer) {
+            Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, application.packageName)
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, (player as ExoPlayer).audioSessionId)
+                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+                sendBroadcast(this)
+            }
         }
     }
 
     private fun closeAudioEffectSession() {
-        Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
-            putExtra(AudioEffect.EXTRA_PACKAGE_NAME, application.packageName)
-            putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
-            putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            sendBroadcast(this)
+        // Only close audio effect session if the player is ExoPlayer
+        if (player is ExoPlayer) {
+            Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, application.packageName)
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, (player as ExoPlayer).audioSessionId)
+                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+                sendBroadcast(this)
+            }
         }
     }
 
@@ -621,7 +698,12 @@ class PlaybackService : MediaLibraryService(), LifecycleOwner {
     )
 
     private fun getCustomLayout() = CustomCommand.entries.mapNotNull {
-        it.buildCommandButton(player, resources)
+        val p = player
+        when (p) {
+            is ExoPlayer -> it.buildCommandButton(p, resources)
+            is CastPlayer -> it.buildCommandButton(p, resources)
+            else -> null
+        }
     }
 
     /**

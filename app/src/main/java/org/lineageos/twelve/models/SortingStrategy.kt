@@ -34,4 +34,19 @@ enum class SortingStrategy {
      * Sort by user's play count, least to most.
      */
     PLAY_COUNT,
+
+    /**
+     * Sort by creation date, oldest to newest.
+     */
+    DATE_ADDED,
+
+    /**
+     * Sort by duration, shortest to longest.
+     */
+    DURATION,
+
+    /**
+     * Sort by album name.
+     */
+    ALBUM_NAME,
 }
