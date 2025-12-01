@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -447,15 +448,16 @@ open class NowPlayingViewModel(application: Application) : TwelveViewModel(appli
 
     fun playMedia(uri: android.net.Uri) {
         viewModelScope.launch {
-            mediaController.value?.let {
-                // Here we would ideally set the playlist context if available.
-                // For now we just play the single item.
-                val mediaItem = org.lineageos.twelve.models.Audio.Builder(uri).build()
-                    .toMedia3MediaItem(getApplication<Application>().resources)
-                it.setMediaItem(mediaItem)
-                it.prepare()
-                it.play()
-            }
+            // Wait for media controller to be available
+            val controller = mediaControllerFlow.first { it != null } ?: return@launch
+
+            // Here we would ideally set the playlist context if available.
+            // For now we just play the single item.
+            val mediaItem = org.lineageos.twelve.models.Audio.Builder(uri).build()
+                .toMedia3MediaItem(getApplication<Application>().resources)
+            controller.setMediaItem(mediaItem)
+            controller.prepare()
+            controller.play()
         }
     }
 
