@@ -39,6 +39,7 @@
     <string name="no_artists">No artists</string>
     <string name="no_genres">No genres</string>
     <string name="no_playlists">No playlists</string>
+    <string name="no_songs">No songs</string>
     <string name="no_audios">No audios</string>
     <string name="no_results">No results</string>
     <string name="shrug" translatable="false">¯\\_(ツ)_/¯</string>
@@ -205,6 +206,9 @@
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_summary">Skip silence when playing audio</string>
 
+    <string name="exclusive_usb_access">Exclusive USB access</string>
+    <string name="exclusive_usb_access_summary">Request exclusive access to USB audio devices when connected. This may improve audio quality but will prevent other apps from using the device.</string>
+
     <!-- Reset local stats -->
     <string name="reset_local_stats">Reset local media playback statistics</string>
     <string name="reset_local_stats_confirm_title">Reset local stats</string>
@@ -249,7 +253,16 @@
     <string name="sort_by_play_count">Play count</string>
     <string name="sort_by_release_date">Release date</string>
     <string name="sort_by_title">Title</string>
+    <string name="sort_by_album_name">Album</string>
+    <string name="sort_by_duration">Duration</string>
+    <string name="sort_by_date_added">Date added</string>
     <string name="sort_by_unknown">Unknown</string>
+
+    <string name="cast">Cast</string>
+    <string name="view_mode_list">List</string>
+    <string name="view_mode_list_with_art">List with art</string>
+    <string name="view_mode_grid">Grid</string>
+    <string name="main_fragment_section_songs">Songs</string>
 
     <!-- Activities -->
     <string name="activity_most_played_albums">Most played albums</string>

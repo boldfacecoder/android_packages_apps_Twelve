@@ -37,6 +37,13 @@
             app:summary="@string/skip_silence_summary"
             app:title="@string/skip_silence" />
 
+        <SwitchPreference
+            app:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:key="exclusive_usb_access"
+            app:summary="@string/exclusive_usb_access_summary"
+            app:title="@string/exclusive_usb_access" />
+
         <Preference
             app:iconSpaceReserved="false"
             app:key="reset_local_stats"
